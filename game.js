@@ -91,7 +91,8 @@
         gameOver: false,
         aiThinking: false,
         inCheck: false,
-        promotingPawn: null
+        promotingPawn: null,
+        enPassantTarget: null  // {row, col} of the square where en passant capture is possible
     };
 
     // ========== DOM ELEMENTS ==========
@@ -147,6 +148,7 @@
         gameState.aiThinking = false;
         gameState.inCheck = false;
         gameState.promotingPawn = null;
+        gameState.enPassantTarget = null;
         gameState.aiCaptured = [];
         if (!keepScore) {
             gameState.mana = 0;
@@ -205,6 +207,16 @@
                         moves.push({ row: r, col: c });
                     }
                 }
+                // En passant
+                if (gameState.enPassantTarget) {
+                    const ep = gameState.enPassantTarget;
+                    for (const dc of [-1, 1]) {
+                        const r = row + dir, c = col + dc;
+                        if (r === ep.row && c === ep.col) {
+                            moves.push({ row: r, col: c, enPassant: true });
+                        }
+                    }
+                }
                 break;
             }
             case PIECE_TYPES.KNIGHT:
@@ -227,6 +239,27 @@
                     for (let dc = -1; dc <= 1; dc++) {
                         if (dr === 0 && dc === 0) continue;
                         addMove(row + dr, col + dc);
+                    }
+                }
+                // Castling
+                if (!piece.hasMoved && !isSquareAttacked(row, col, enemy, board)) {
+                    // King-side castling (short)
+                    const rookKS = board[row][7];
+                    if (rookKS && rookKS.type === PIECE_TYPES.ROOK && rookKS.color === color && !rookKS.hasMoved) {
+                        if (!board[row][5] && !board[row][6]) {
+                            if (!isSquareAttacked(row, 5, enemy, board) && !isSquareAttacked(row, 6, enemy, board)) {
+                                moves.push({ row, col: 6, castling: 'kingside' });
+                            }
+                        }
+                    }
+                    // Queen-side castling (long)
+                    const rookQS = board[row][0];
+                    if (rookQS && rookQS.type === PIECE_TYPES.ROOK && rookQS.color === color && !rookQS.hasMoved) {
+                        if (!board[row][1] && !board[row][2] && !board[row][3]) {
+                            if (!isSquareAttacked(row, 2, enemy, board) && !isSquareAttacked(row, 3, enemy, board)) {
+                                moves.push({ row, col: 2, castling: 'queenside' });
+                            }
+                        }
                     }
                 }
                 break;
@@ -284,13 +317,33 @@
         return isSquareAttacked(king.row, king.col, enemy, board);
     }
 
-    function simulateMove(piece, toRow, toCol, board) {
+    function simulateMove(piece, toRow, toCol, board, moveFlags) {
         // Create a shallow copy of the board to test a move
         const newBoard = board.map(row => row.slice());
         newBoard[piece.row][piece.col] = null;
         // Create a temporary piece at the destination
         const movedPiece = { ...piece, row: toRow, col: toCol };
         newBoard[toRow][toCol] = movedPiece;
+
+        // Simulate en passant capture
+        if (moveFlags && moveFlags.enPassant && piece.type === PIECE_TYPES.PAWN) {
+            const capturedRow = piece.color === COLORS.WHITE ? toRow + 1 : toRow - 1;
+            newBoard[capturedRow][toCol] = null;
+        }
+
+        // Simulate castling rook move
+        if (moveFlags && moveFlags.castling && piece.type === PIECE_TYPES.KING) {
+            if (moveFlags.castling === 'kingside') {
+                const rook = newBoard[piece.row][7];
+                newBoard[piece.row][7] = null;
+                newBoard[piece.row][5] = rook ? { ...rook, col: 5 } : null;
+            } else if (moveFlags.castling === 'queenside') {
+                const rook = newBoard[piece.row][0];
+                newBoard[piece.row][0] = null;
+                newBoard[piece.row][3] = rook ? { ...rook, col: 3 } : null;
+            }
+        }
+
         return newBoard;
     }
 
@@ -299,7 +352,10 @@
         const raw = getValidMoves(piece, board);
         // Filter: only moves that don't leave own king in check
         return raw.filter(move => {
-            const simBoard = simulateMove(piece, move.row, move.col, board);
+            const flags = {};
+            if (move.enPassant) flags.enPassant = true;
+            if (move.castling) flags.castling = move.castling;
+            const simBoard = simulateMove(piece, move.row, move.col, board, flags);
             return !isInCheck(piece.color, simBoard);
         });
     }
@@ -330,9 +386,10 @@
     }
 
     // ========== MOVE EXECUTION ==========
-    function movePiece(piece, toRow, toCol) {
+    function movePiece(piece, toRow, toCol, moveFlags) {
         const board = gameState.board;
         const captured = board[toRow][toCol];
+        if (!moveFlags) moveFlags = {};
 
         // Check shield
         if (captured && isShielded(captured)) {
@@ -340,9 +397,26 @@
             return false;
         }
 
+        const fromRow = piece.row;
+        const fromCol = piece.col;
         board[piece.row][piece.col] = null;
 
-        if (captured) {
+        // Handle en passant capture
+        if (moveFlags.enPassant && piece.type === PIECE_TYPES.PAWN) {
+            const capturedPawnRow = piece.color === COLORS.WHITE ? toRow + 1 : toRow - 1;
+            const capturedPawn = board[capturedPawnRow][toCol];
+            if (capturedPawn) {
+                board[capturedPawnRow][toCol] = null;
+                if (piece.color === COLORS.WHITE) {
+                    gameState.playerCaptured.push(capturedPawn);
+                    gameState.score += PIECE_VALUES[capturedPawn.type] * 10;
+                } else {
+                    gameState.aiCaptured.push(capturedPawn);
+                }
+                AudioSystem.play('capture');
+                addLog(`${PIECE_SYMBOLS[piece.color][piece.type]} captura al paso ${PIECE_SYMBOLS[capturedPawn.color][capturedPawn.type]}`, 'capture-log');
+            }
+        } else if (captured) {
             if (piece.color === COLORS.WHITE) {
                 gameState.playerCaptured.push(captured);
                 gameState.score += PIECE_VALUES[captured.type] * 10;
@@ -362,7 +436,7 @@
                     return true;
                 }
             }
-        } else {
+        } else if (!moveFlags.enPassant) {
             AudioSystem.play('move');
             addLog(`${PIECE_SYMBOLS[piece.color][piece.type]} mueve a ${String.fromCharCode(97 + toCol)}${8 - toRow}`);
         }
@@ -371,6 +445,40 @@
         piece.col = toCol;
         piece.hasMoved = true;
         board[toRow][toCol] = piece;
+
+        // Handle castling - move the rook
+        if (moveFlags.castling && piece.type === PIECE_TYPES.KING) {
+            if (moveFlags.castling === 'kingside') {
+                const rook = board[fromRow][7];
+                if (rook) {
+                    board[fromRow][7] = null;
+                    rook.row = fromRow;
+                    rook.col = 5;
+                    rook.hasMoved = true;
+                    board[fromRow][5] = rook;
+                }
+                addLog(`${PIECE_SYMBOLS[piece.color][piece.type]} enroque corto`, 'power-log');
+            } else if (moveFlags.castling === 'queenside') {
+                const rook = board[fromRow][0];
+                if (rook) {
+                    board[fromRow][0] = null;
+                    rook.row = fromRow;
+                    rook.col = 3;
+                    rook.hasMoved = true;
+                    board[fromRow][3] = rook;
+                }
+                addLog(`${PIECE_SYMBOLS[piece.color][piece.type]} enroque largo`, 'power-log');
+            }
+        }
+
+        // Update en passant target
+        if (piece.type === PIECE_TYPES.PAWN && Math.abs(toRow - fromRow) === 2) {
+            // Pawn moved 2 squares - set en passant target
+            const epRow = (fromRow + toRow) / 2;
+            gameState.enPassantTarget = { row: epRow, col: toCol, color: piece.color };
+        } else {
+            gameState.enPassantTarget = null;
+        }
 
         // Pawn promotion
         if (piece.type === PIECE_TYPES.PAWN) {
@@ -807,7 +915,10 @@
         }
 
         if (bestMove) {
-            movePiece(bestMove.piece, bestMove.move.row, bestMove.move.col);
+            const flags = {};
+            if (bestMove.move.enPassant) flags.enPassant = true;
+            if (bestMove.move.castling) flags.castling = bestMove.move.castling;
+            movePiece(bestMove.piece, bestMove.move.row, bestMove.move.col, flags);
             if (!gameState.gameOver) {
                 endTurn();
             }
@@ -946,6 +1057,14 @@
                 // Red indicator for thunder targets
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
                 ctx.fillRect(move.col * TILE_SIZE, move.row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            } else if (move.castling) {
+                // Castling indicator (blue-green)
+                ctx.fillStyle = 'rgba(34, 211, 238, 0.4)';
+                ctx.fillRect(move.col * TILE_SIZE, move.row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            } else if (move.enPassant) {
+                // En passant indicator (orange)
+                ctx.fillStyle = 'rgba(251, 146, 60, 0.45)';
+                ctx.fillRect(move.col * TILE_SIZE, move.row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
             } else if (target) {
                 // Capture indicator
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
@@ -1057,7 +1176,12 @@
         if (gameState.selectedPiece) {
             const isValidMove = gameState.validMoves.some(m => m.row === row && m.col === col);
             if (isValidMove) {
-                const success = movePiece(gameState.selectedPiece, row, col);
+                // Find the move to get flags (enPassant, castling)
+                const matchedMove = gameState.validMoves.find(m => m.row === row && m.col === col);
+                const flags = {};
+                if (matchedMove && matchedMove.enPassant) flags.enPassant = true;
+                if (matchedMove && matchedMove.castling) flags.castling = matchedMove.castling;
+                const success = movePiece(gameState.selectedPiece, row, col, flags);
                 if (success === 'promoting') {
                     // Wait for promotion choice before ending turn
                     drawBoard();
