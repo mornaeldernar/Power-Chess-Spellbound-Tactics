@@ -277,30 +277,73 @@
             for (let c = 0; c < 8; c++) {
                 const p = board[r][c];
                 if (!p || p.color !== byColor) continue;
-                const moves = getRawMoves(p, board);
+                const moves = getAttackMoves(p, board);
                 if (moves.some(m => m.row === row && m.col === col)) return true;
             }
         }
         return false;
     }
 
-    // getRawMoves returns attack squares (used for check detection)
-    // For most pieces this is the same as getValidMoves, but pawns
-    // attack diagonally regardless of whether an enemy is there.
-    function getRawMoves(piece, board) {
-        if (piece.type === PIECE_TYPES.PAWN) {
-            // Pawns attack diagonally (not forward moves)
-            const moves = [];
-            const dir = piece.color === COLORS.WHITE ? -1 : 1;
+    // getAttackMoves returns squares a piece attacks (NO castling, NO en passant target check)
+    // This avoids infinite recursion since castling validation calls isSquareAttacked
+    function getAttackMoves(piece, board) {
+        const moves = [];
+        const { type, color, row, col } = piece;
+        const enemy = color === COLORS.WHITE ? COLORS.BLACK : COLORS.WHITE;
+
+        // Pawns attack diagonally regardless of occupancy
+        if (type === PIECE_TYPES.PAWN) {
+            const dir = color === COLORS.WHITE ? -1 : 1;
             for (const dc of [-1, 1]) {
-                const r = piece.row + dir, c = piece.col + dc;
-                if (isInBounds(r, c)) {
-                    moves.push({ row: r, col: c });
-                }
+                const r = row + dir, c = col + dc;
+                if (isInBounds(r, c)) moves.push({ row: r, col: c });
             }
             return moves;
         }
-        return getValidMoves(piece, board);
+
+        function addMove(r, c) {
+            if (!isInBounds(r, c)) return;
+            const target = board[r][c];
+            if (!target || target.color === enemy) moves.push({ row: r, col: c });
+        }
+
+        function addSlide(dr, dc) {
+            for (let i = 1; i < 8; i++) {
+                const r = row + dr * i, c = col + dc * i;
+                if (!isInBounds(r, c)) break;
+                const target = board[r][c];
+                if (!target) { moves.push({ row: r, col: c }); }
+                else { if (target.color === enemy) moves.push({ row: r, col: c }); break; }
+            }
+        }
+
+        switch (type) {
+            case PIECE_TYPES.KNIGHT:
+                for (const [dr, dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
+                    addMove(row + dr, col + dc);
+                }
+                break;
+            case PIECE_TYPES.BISHOP:
+                addSlide(-1, -1); addSlide(-1, 1); addSlide(1, -1); addSlide(1, 1);
+                break;
+            case PIECE_TYPES.ROOK:
+                addSlide(-1, 0); addSlide(1, 0); addSlide(0, -1); addSlide(0, 1);
+                break;
+            case PIECE_TYPES.QUEEN:
+                addSlide(-1, -1); addSlide(-1, 1); addSlide(1, -1); addSlide(1, 1);
+                addSlide(-1, 0); addSlide(1, 0); addSlide(0, -1); addSlide(0, 1);
+                break;
+            case PIECE_TYPES.KING:
+                // King attacks adjacent squares only (no castling)
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        addMove(row + dr, col + dc);
+                    }
+                }
+                break;
+        }
+        return moves;
     }
 
     function findKing(color, board) {
