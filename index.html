@@ -54,7 +54,25 @@
                     <span class="power-icon">&#128737;</span>
                     <span class="power-name">Escudo Sagrado</span>
                     <span class="power-cost">3 Maná</span>
-                    <span class="power-desc">Rey/Reina: inmunidad 1 turno</span>
+                    <span class="power-desc">Rey: inmunidad 1 turno</span>
+                </button>
+                <button id="btn-defense-shout" class="power-btn" disabled>
+                    <span class="power-icon">&#128226;</span>
+                    <span class="power-name">Grito de Defensa</span>
+                    <span class="power-cost">4 Maná</span>
+                    <span class="power-desc">Rey: escuda todos los peones aliados 1 turno</span>
+                </button>
+                <button id="btn-fireball" class="power-btn" disabled>
+                    <span class="power-icon">&#128293;</span>
+                    <span class="power-name">Bola de Fuego</span>
+                    <span class="power-cost">4 Maná</span>
+                    <span class="power-desc">Reina: destruye 3 casillas en línea recta</span>
+                </button>
+                <button id="btn-spectral-dash" class="power-btn" disabled>
+                    <span class="power-icon">&#128171;</span>
+                    <span class="power-name">Paso Espectral</span>
+                    <span class="power-cost">2 Maná</span>
+                    <span class="power-desc">Alfil: se teletransporta a cualquier diagonal vacía</span>
                 </button>
             </section>
 
@@ -63,6 +81,20 @@
                 <ul id="action-log"></ul>
             </section>
         </aside>
+    </div>
+
+    <!-- Promotion Modal -->
+    <div id="promotion-modal" class="modal hidden">
+        <div class="modal-content promotion">
+            <h2>&#9813; Coronación del Peón</h2>
+            <p>Elige la pieza para tu peón:</p>
+            <div id="promotion-choices">
+                <button class="promo-btn" data-piece="queen"><span>&#9813;</span><br>Reina</button>
+                <button class="promo-btn" data-piece="rook"><span>&#9814;</span><br>Torre</button>
+                <button class="promo-btn" data-piece="bishop"><span>&#9815;</span><br>Alfil</button>
+                <button class="promo-btn" data-piece="knight"><span>&#9816;</span><br>Caballo</button>
+            </div>
+        </div>
     </div>
 
     <!-- Game Over Modal -->
