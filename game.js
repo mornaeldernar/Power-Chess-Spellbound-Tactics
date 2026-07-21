@@ -248,8 +248,22 @@
         return false;
     }
 
-    // getRawMoves is getValidMoves without check filtering (to avoid recursion)
+    // getRawMoves returns attack squares (used for check detection)
+    // For most pieces this is the same as getValidMoves, but pawns
+    // attack diagonally regardless of whether an enemy is there.
     function getRawMoves(piece, board) {
+        if (piece.type === PIECE_TYPES.PAWN) {
+            // Pawns attack diagonally (not forward moves)
+            const moves = [];
+            const dir = piece.color === COLORS.WHITE ? -1 : 1;
+            for (const dc of [-1, 1]) {
+                const r = piece.row + dir, c = piece.col + dc;
+                if (isInBounds(r, c)) {
+                    moves.push({ row: r, col: c });
+                }
+            }
+            return moves;
+        }
         return getValidMoves(piece, board);
     }
 
