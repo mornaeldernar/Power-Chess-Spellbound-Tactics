@@ -7,7 +7,7 @@
 > **Proyecto desarrollado para el Hackathon Kiro / Código Facilito.**
 
 ## 🎮 Demo en Vivo
-👉 [¡Jugar a Power Chess aquí!](https://tu-usuario.github.io/power-chess-tactics/)
+👉 [¡Jugar a Power Chess aquí!](https://mornaeldernar.github.io/Power-Chess-Spellbound-Tactics/)
 
 ---
 
