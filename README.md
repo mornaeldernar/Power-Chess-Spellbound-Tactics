@@ -29,7 +29,7 @@ Cada pieza tiene un hechizo único que se desbloquea al seleccionarla:
 | 👑 Rey | **Grito de Defensa** | 4 Maná | Aplica escudo a todos los peones aliados durante 1 turno |
 | 👸 Reina | **Bola de Fuego** | 4 Maná | Destruye todo en 3 casillas en línea recta (arriba/abajo/izquierda/derecha) |
 | 🔮 Alfil | **Paso Espectral** | 2 Maná | Se teletransporta a cualquier diagonal vacía (ignora bloqueos) |
-| 🌀 Cualquiera | **Caos Dimensional** | 1000 Maná | Randomiza el tablero en posiciones válidas. Pierdes un turno. |
+| 🌀 Cualquiera | **Caos Dimensional** | 100 Maná | Randomiza el tablero en posiciones válidas. Pierdes un turno. |
 
 ---
 
