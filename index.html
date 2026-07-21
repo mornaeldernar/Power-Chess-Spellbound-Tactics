@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Chess: Spellbound Tactics</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <main id="board-area">
+            <h1 id="game-title">&#9876; Power Chess: Spellbound Tactics</h1>
+            <canvas id="chessCanvas" width="560" height="560"></canvas>
+            <p id="turn-indicator">Turno: Jugador (Blanco)</p>
+        </main>
+
+        <aside id="side-panel">
+            <section id="stats-section">
+                <h2>Estadísticas</h2>
+                <div class="stat-row">
+                    <span class="stat-label">Nivel:</span>
+                    <span id="level-display" class="stat-value">1</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Puntuación:</span>
+                    <span id="score-display" class="stat-value">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">High Score:</span>
+                    <span id="highscore-display" class="stat-value">0</span>
+                </div>
+                <div class="stat-row mana-row">
+                    <span class="stat-label">&#10026; Maná:</span>
+                    <span id="mana-display" class="stat-value">0</span>
+                </div>
+            </section>
+
+            <section id="powers-section">
+                <h2>&#9889; Hechizos</h2>
+                <p id="power-hint">Selecciona una pieza para ver sus poderes</p>
+                <button id="btn-shadow-jump" class="power-btn" disabled>
+                    <span class="power-icon">&#128065;</span>
+                    <span class="power-name">Salto Sombra</span>
+                    <span class="power-cost">2 Maná</span>
+                    <span class="power-desc">Caballo: mueve a cualquier casilla vacía</span>
+                </button>
+                <button id="btn-thunder-strike" class="power-btn" disabled>
+                    <span class="power-icon">&#9889;</span>
+                    <span class="power-name">Golpe de Trueno</span>
+                    <span class="power-cost">3 Maná</span>
+                    <span class="power-desc">Torre: destruye enemigo adyacente</span>
+                </button>
+                <button id="btn-sacred-shield" class="power-btn" disabled>
+                    <span class="power-icon">&#128737;</span>
+                    <span class="power-name">Escudo Sagrado</span>
+                    <span class="power-cost">3 Maná</span>
+                    <span class="power-desc">Rey/Reina: inmunidad 1 turno</span>
+                </button>
+            </section>
+
+            <section id="log-section">
+                <h2>&#128220; Historial</h2>
+                <ul id="action-log"></ul>
+            </section>
+        </aside>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>&#128128; Game Over</h2>
+            <p id="modal-level">Nivel alcanzado: <span>1</span></p>
+            <p id="modal-score">Puntuación: <span>0</span></p>
+            <p id="modal-highscore">High Score: <span>0</span></p>
+            <div id="modal-captured">
+                <h3>Piezas capturadas por la IA:</h3>
+                <p id="captured-list"></p>
+            </div>
+            <button id="btn-retry">&#9876; Reintentar</button>
+        </div>
+    </div>
+
+    <!-- Level Up Modal -->
+    <div id="level-up-modal" class="modal hidden">
+        <div class="modal-content level-up">
+            <h2>&#127775; ¡Nivel Completado!</h2>
+            <p id="levelup-text">Pasas al nivel <span>2</span></p>
+            <button id="btn-next-level">Siguiente Nivel &#10145;</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
