@@ -926,7 +926,16 @@
                         board[r][c] = null;
                         destroyed++;
                     } else if (target && target.color === COLORS.WHITE) {
-                        // Friendly fire - also destroys own pieces (except doesn't score)
+                        // Friendly fire - also destroys own pieces
+                        if (target.type === PIECE_TYPES.KING) {
+                            board[r][c] = null;
+                            AudioSystem.play('power');
+                            addLog('¡Bola de Fuego destruye a tu propio Rey!', 'capture-log');
+                            gameState.activePower = null;
+                            gameState.powerTargets = [];
+                            endGame();
+                            return;
+                        }
                         board[r][c] = null;
                         destroyed++;
                     }
@@ -963,6 +972,8 @@
         gameState.validMoves = [];
         gameState.activePower = null;
         gameState.powerTargets = [];
+        // Clear active power button highlight
+        document.querySelectorAll('.power-btn.power-active').forEach(b => b.classList.remove('power-active'));
 
         if (gameState.gameOver) return;
 
@@ -1462,6 +1473,15 @@
                                 return;
                             }
                             gameState.aiCaptured.push(target);
+                        } else if (target.color === COLORS.BLACK) {
+                            // AI friendly fire - if it's own king, player wins
+                            if (target.type === PIECE_TYPES.KING) {
+                                board[r][c] = null;
+                                AudioSystem.play('power');
+                                addLog(`IA: ¡Bola de Fuego destruye a su propio Rey!`, 'power-log');
+                                levelComplete();
+                                return;
+                            }
                         }
                         board[r][c] = null;
                         destroyed++;

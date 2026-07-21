@@ -203,6 +203,12 @@ body {
     box-shadow: 0 0 12px var(--accent-glow);
 }
 
+.power-btn.power-active {
+    background: var(--accent-glow);
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 14px var(--accent-glow);
+}
+
 .power-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -516,6 +522,15 @@ body {
 
     .power-btn .power-desc {
         display: none;
+    }
+
+    /* Show description in power-hint area on mobile */
+    #power-hint {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        font-style: normal;
+        padding: 6px 0;
+        min-height: 2em;
     }
 
     #turn-indicator {
