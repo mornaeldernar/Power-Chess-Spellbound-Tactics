@@ -755,8 +755,8 @@
 
         // Chaos doesn't require a selected piece
         if (powerType === 'chaos') {
-            if (gameState.mana < 1000) return;
-            gameState.mana -= 1000;
+            if (gameState.mana < 100) return;
+            gameState.mana -= 100;
             randomizeBoard();
             AudioSystem.play('power');
             addLog('¡Caos Dimensional! El tablero ha sido alterado. Pierdes un turno.', 'power-log');
@@ -1562,7 +1562,7 @@
         btnChaos.disabled = true;
 
         // Chaos is available anytime with enough mana (no piece selection needed)
-        if (gameState.currentTurn === COLORS.WHITE && gameState.mana >= 10 && !gameState.gameOver) {
+        if (gameState.currentTurn === COLORS.WHITE && gameState.mana >= 100 && !gameState.gameOver) {
             btnChaos.disabled = false;
         }
 
