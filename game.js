@@ -1562,12 +1562,13 @@
         btnChaos.disabled = true;
 
         // Chaos is available anytime with enough mana (no piece selection needed)
-        if (gameState.currentTurn === COLORS.WHITE && gameState.mana >= 1000 && !gameState.gameOver) {
+        if (gameState.currentTurn === COLORS.WHITE && gameState.mana >= 10 && !gameState.gameOver) {
             btnChaos.disabled = false;
         }
 
         if (!piece || gameState.currentTurn !== COLORS.WHITE || piece.color !== COLORS.WHITE) {
             powerHint.textContent = 'Selecciona una pieza para ver sus poderes';
+            reorderPowerButtons();
             return;
         }
 
@@ -1591,6 +1592,18 @@
         if (piece.type === PIECE_TYPES.BISHOP && gameState.mana >= 2) {
             btnSpectralDash.disabled = false;
         }
+
+        reorderPowerButtons();
+    }
+
+    function reorderPowerButtons() {
+        const container = document.getElementById('powers-section');
+        const buttons = [btnShadowJump, btnThunderStrike, btnSacredShield, btnDefenseShout, btnFireball, btnSpectralDash, btnChaos];
+        const enabled = buttons.filter(b => !b.disabled);
+        const disabled = buttons.filter(b => b.disabled);
+        // Move enabled buttons first, then disabled
+        for (const btn of enabled) container.appendChild(btn);
+        for (const btn of disabled) container.appendChild(btn);
     }
 
     function addLog(message, className) {

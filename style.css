@@ -482,7 +482,7 @@ body {
         flex-direction: column;
     }
 
-    /* Reorder: mana bar first, powers second, stats third, log last */
+    /* Reorder: mana bar first, powers second, stats hidden, log last */
     #mobile-mana-bar {
         display: flex !important;
         order: 1;
@@ -494,8 +494,7 @@ body {
     }
 
     #stats-section {
-        order: 3;
-        padding: 10px;
+        display: none;
     }
 
     #log-section {
