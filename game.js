@@ -1162,7 +1162,7 @@
         btnChaos.disabled = true;
 
         // Chaos is available anytime with enough mana (no piece selection needed)
-        if (gameState.currentTurn === COLORS.WHITE && gameState.mana >= 10 && !gameState.gameOver) {
+        if (gameState.currentTurn === COLORS.WHITE && gameState.mana >= 1000 && !gameState.gameOver) {
             btnChaos.disabled = false;
         }
 
