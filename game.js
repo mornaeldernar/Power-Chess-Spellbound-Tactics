@@ -92,8 +92,9 @@
         aiThinking: false,
         inCheck: false,
         promotingPawn: null,
-        enPassantTarget: null,  // {row, col} of the square where en passant capture is possible
-        skipNextTurn: false
+        enPassantTarget: null,
+        skipNextTurn: false,
+        positionHistory: []  // For threefold repetition detection
     };
 
     // ========== DOM ELEMENTS ==========
@@ -152,6 +153,7 @@
         gameState.promotingPawn = null;
         gameState.enPassantTarget = null;
         gameState.skipNextTurn = false;
+        gameState.positionHistory = [];
         gameState.aiCaptured = [];
         if (!keepScore) {
             gameState.mana = 0;
@@ -429,6 +431,107 @@
             }
         }
         return true;
+    }
+
+    // ========== DRAW DETECTION ==========
+    function getBoardHash(board, turn) {
+        // Create a string representation of the board position + whose turn
+        let hash = turn === COLORS.WHITE ? 'w' : 'b';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = board[r][c];
+                if (p) {
+                    hash += p.color[0] + p.type[0] + r + c;
+                } else {
+                    hash += '.';
+                }
+            }
+        }
+        return hash;
+    }
+
+    function recordPosition() {
+        const hash = getBoardHash(gameState.board, gameState.currentTurn);
+        gameState.positionHistory.push(hash);
+    }
+
+    function isThreefoldRepetition() {
+        const current = getBoardHash(gameState.board, gameState.currentTurn);
+        let count = 0;
+        for (const pos of gameState.positionHistory) {
+            if (pos === current) count++;
+            if (count >= 3) return true;
+        }
+        return false;
+    }
+
+    function isInsufficientMaterial(board) {
+        const pieces = { white: [], black: [] };
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = board[r][c];
+                if (p) pieces[p.color].push(p.type);
+            }
+        }
+
+        const w = pieces.white.filter(t => t !== PIECE_TYPES.KING);
+        const b = pieces.black.filter(t => t !== PIECE_TYPES.KING);
+
+        // King vs King
+        if (w.length === 0 && b.length === 0) return true;
+        // King + Bishop vs King
+        if (w.length === 1 && w[0] === PIECE_TYPES.BISHOP && b.length === 0) return true;
+        if (b.length === 1 && b[0] === PIECE_TYPES.BISHOP && w.length === 0) return true;
+        // King + Knight vs King
+        if (w.length === 1 && w[0] === PIECE_TYPES.KNIGHT && b.length === 0) return true;
+        if (b.length === 1 && b[0] === PIECE_TYPES.KNIGHT && w.length === 0) return true;
+        // King + Bishop vs King + Bishop (same color diagonals)
+        if (w.length === 1 && w[0] === PIECE_TYPES.BISHOP && b.length === 1 && b[0] === PIECE_TYPES.BISHOP) {
+            // Find bishop positions
+            let wBishopLight = false, bBishopLight = false;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = board[r][c];
+                    if (p && p.type === PIECE_TYPES.BISHOP) {
+                        if (p.color === COLORS.WHITE) wBishopLight = (r + c) % 2 === 0;
+                        else bBishopLight = (r + c) % 2 === 0;
+                    }
+                }
+            }
+            if (wBishopLight === bBishopLight) return true;
+        }
+
+        return false;
+    }
+
+    function checkDrawConditions() {
+        if (isInsufficientMaterial(gameState.board)) {
+            addLog('Empate por material insuficiente.', 'power-log');
+            triggerDraw('Material insuficiente para jaque mate.');
+            return true;
+        }
+        if (isThreefoldRepetition()) {
+            addLog('Empate por triple repetición.', 'power-log');
+            triggerDraw('Posición repetida 3 veces.');
+            return true;
+        }
+        return false;
+    }
+
+    function triggerDraw(reason) {
+        gameState.gameOver = true;
+        AudioSystem.play('gameover');
+
+        if (gameState.score > gameState.highScore) {
+            gameState.highScore = gameState.score;
+            localStorage.setItem('powerChessHighScore', gameState.highScore.toString());
+        }
+
+        document.querySelector('#draw-reason').textContent = reason;
+        document.querySelector('#draw-level span').textContent = gameState.level;
+        document.querySelector('#draw-score span').textContent = gameState.score;
+        document.getElementById('draw-modal').classList.remove('hidden');
+        updateUI();
     }
 
     // ========== MOVE EXECUTION ==========
@@ -870,6 +973,10 @@
             });
             gameState.currentTurn = COLORS.BLACK;
 
+            // Record position and check draw
+            recordPosition();
+            if (checkDrawConditions()) return;
+
             // Check if AI is in checkmate or stalemate
             if (isCheckmate(COLORS.BLACK, gameState.board)) {
                 addLog('¡Jaque Mate! La IA ha sido derrotada.', 'power-log');
@@ -904,6 +1011,10 @@
             });
             gameState.currentTurn = COLORS.WHITE;
             gameState.mana += 1;
+
+            // Record position and check draw
+            recordPosition();
+            if (checkDrawConditions()) return;
 
             // Check if player is in checkmate or stalemate
             if (isCheckmate(COLORS.WHITE, gameState.board)) {
@@ -1206,13 +1317,14 @@
 
     // ========== RENDERING ==========
     function drawBoard() {
+        const colors = getThemeColors();
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
         // Draw tiles
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const isLight = (r + c) % 2 === 0;
-                ctx.fillStyle = isLight ? '#2d1b4e' : '#1a0f2e';
+                ctx.fillStyle = isLight ? colors.tileLight : colors.tileDark;
                 ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
             }
         }
@@ -1297,7 +1409,7 @@
                     ctx.fillStyle = 'rgba(0,0,0,0.3)';
                     ctx.fillText(PIECE_SYMBOLS[piece.color][piece.type], c * TILE_SIZE + TILE_SIZE / 2 + 2, r * TILE_SIZE + TILE_SIZE / 2 + 2);
                     // Piece
-                    ctx.fillStyle = piece.color === COLORS.WHITE ? '#93c5fd' : '#fca5a5';
+                    ctx.fillStyle = piece.color === COLORS.WHITE ? colors.pieceWhite : colors.pieceBlack;
                     ctx.fillText(PIECE_SYMBOLS[piece.color][piece.type], c * TILE_SIZE + TILE_SIZE / 2, r * TILE_SIZE + TILE_SIZE / 2);
                 }
             }
@@ -1420,6 +1532,11 @@
         resetGame(false);
     });
 
+    document.getElementById('btn-draw-retry').addEventListener('click', () => {
+        document.getElementById('draw-modal').classList.add('hidden');
+        resetGame(false);
+    });
+
     btnNextLevel.addEventListener('click', () => {
         levelUpModal.classList.add('hidden');
         gameState.level++;
@@ -1427,6 +1544,32 @@
         resetGame(true);
         addLog(`--- Nivel ${gameState.level} ---`, 'power-log');
     });
+
+    // ========== THEME TOGGLE ==========
+    const btnTheme = document.getElementById('btn-theme');
+    let currentTheme = localStorage.getItem('powerChessTheme') || 'default';
+    if (currentTheme === 'codigofacilito') {
+        document.body.classList.add('theme-codigofacilito');
+    }
+
+    btnTheme.addEventListener('click', () => {
+        document.body.classList.toggle('theme-codigofacilito');
+        currentTheme = document.body.classList.contains('theme-codigofacilito') ? 'codigofacilito' : 'default';
+        localStorage.setItem('powerChessTheme', currentTheme);
+        drawBoard();
+    });
+
+    function getThemeColors() {
+        const style = getComputedStyle(document.body);
+        return {
+            tileLight: style.getPropertyValue('--tile-light').trim(),
+            tileDark: style.getPropertyValue('--tile-dark').trim(),
+            pieceWhite: style.getPropertyValue('--piece-white').trim(),
+            pieceBlack: style.getPropertyValue('--piece-black').trim(),
+            accent: style.getPropertyValue('--accent').trim(),
+            borderAccent: style.getPropertyValue('--border-accent').trim()
+        };
+    }
 
     // ========== INITIALIZATION ==========
     function init() {

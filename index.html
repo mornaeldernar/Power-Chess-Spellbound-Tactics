@@ -9,7 +9,10 @@
 <body>
     <div id="game-container">
         <main id="board-area">
-            <h1 id="game-title">&#9876; Power Chess: Spellbound Tactics</h1>
+            <div id="title-row">
+                <h1 id="game-title">&#9876; Power Chess: Spellbound Tactics</h1>
+                <button id="btn-theme" title="Cambiar tema de colores">&#127912;</button>
+            </div>
             <canvas id="chessCanvas" width="560" height="560"></canvas>
             <p id="turn-indicator">Turno: Jugador (Blanco)</p>
         </main>
@@ -100,6 +103,17 @@
                 <button class="promo-btn" data-piece="bishop"><span>&#9815;</span><br>Alfil</button>
                 <button class="promo-btn" data-piece="knight"><span>&#9816;</span><br>Caballo</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Draw Modal -->
+    <div id="draw-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>&#9878; Empate</h2>
+            <p id="draw-reason">Posición repetida 3 veces.</p>
+            <p id="draw-level">Nivel: <span>1</span></p>
+            <p id="draw-score">Puntuación: <span>0</span></p>
+            <button id="btn-draw-retry">&#9876; Reintentar</button>
         </div>
     </div>
 
