@@ -1797,14 +1797,46 @@
         drawBoard();
     });
 
-    // Power buttons
-    btnShadowJump.addEventListener('click', () => activatePower('shadowJump'));
-    btnThunderStrike.addEventListener('click', () => activatePower('thunderStrike'));
-    btnSacredShield.addEventListener('click', () => activatePower('sacredShield'));
-    btnDefenseShout.addEventListener('click', () => activatePower('defenseShout'));
-    btnFireball.addEventListener('click', () => activatePower('fireball'));
-    btnSpectralDash.addEventListener('click', () => activatePower('spectralDash'));
-    btnChaos.addEventListener('click', () => activatePower('chaos'));
+    // Power buttons - with toggle support
+    const powerButtonMap = {
+        shadowJump: btnShadowJump,
+        thunderStrike: btnThunderStrike,
+        sacredShield: btnSacredShield,
+        defenseShout: btnDefenseShout,
+        fireball: btnFireball,
+        spectralDash: btnSpectralDash,
+        chaos: btnChaos
+    };
+
+    function handlePowerClick(powerType, btn) {
+        // If this power is already active, cancel it
+        if (gameState.activePower === powerType) {
+            gameState.activePower = null;
+            gameState.powerTargets = [];
+            gameState.validMoves = gameState.selectedPiece ? getLegalMoves(gameState.selectedPiece, gameState.board) : [];
+            btn.classList.remove('power-active');
+            powerHint.textContent = 'Poder cancelado.';
+            drawBoard();
+            return;
+        }
+        // Remove active class from all
+        Object.values(powerButtonMap).forEach(b => b.classList.remove('power-active'));
+        // Show description in power-hint
+        const desc = btn.querySelector('.power-desc');
+        if (desc) {
+            powerHint.textContent = desc.textContent;
+        }
+        btn.classList.add('power-active');
+        activatePower(powerType);
+    }
+
+    btnShadowJump.addEventListener('click', () => handlePowerClick('shadowJump', btnShadowJump));
+    btnThunderStrike.addEventListener('click', () => handlePowerClick('thunderStrike', btnThunderStrike));
+    btnSacredShield.addEventListener('click', () => handlePowerClick('sacredShield', btnSacredShield));
+    btnDefenseShout.addEventListener('click', () => handlePowerClick('defenseShout', btnDefenseShout));
+    btnFireball.addEventListener('click', () => handlePowerClick('fireball', btnFireball));
+    btnSpectralDash.addEventListener('click', () => handlePowerClick('spectralDash', btnSpectralDash));
+    btnChaos.addEventListener('click', () => handlePowerClick('chaos', btnChaos));
 
     // Promotion modal
     function showPromotionModal() {
