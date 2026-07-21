@@ -12,22 +12,24 @@
 ---
 
 ## 📌 Descripción del Proyecto
-**Power Chess** combina las reglas tácticas del ajedrez clásico con habilidades especiales y magias estilo RPG. En cada turno, no solo mueves tus piezas, sino que puedes gastar **Maná** para activar poderes devastadores. Incluye reglas completas de jaque y jaque mate, coronación de peones con selección de pieza, y una IA que se vuelve más inteligente con cada nivel.
+
+**Power Chess: Spellbound Tactics** combina las reglas tácticas del ajedrez clásico con habilidades especiales y magias estilo RPG. En cada turno, no solo mueves tus piezas, sino que puedes gastar **Maná** (o puntos) para activar poderes devastadores. Incluye reglas completas de jaque/jaque mate, enroque, captura al paso (en passant), coronación de peones con selección interactiva, y una IA que se vuelve progresivamente más inteligente con cada nivel.
 
 ---
 
 ## ⚔️ Sistema de Poderes
 
-Cada pieza tiene un hechizo único que se desbloquea al seleccionarla (si tienes maná suficiente):
+Cada pieza tiene un hechizo único que se desbloquea al seleccionarla:
 
 | Pieza | Poder | Coste | Efecto |
 |-------|-------|-------|--------|
 | 🐴 Caballo | **Salto Sombra** | 2 Maná | Se teletransporta a cualquier casilla vacía del tablero |
 | 🏰 Torre | **Golpe de Trueno** | 3 Maná | Destruye una pieza enemiga adyacente sin moverse |
 | 👑 Rey | **Escudo Sagrado** | 3 Maná | Se vuelve inmune a capturas durante 1 turno enemigo |
-| � Rey | **Grito de Defensa** | 4 Maná | Aplica escudo a todos los peones aliados durante 1 turno |
+| 👑 Rey | **Grito de Defensa** | 4 Maná | Aplica escudo a todos los peones aliados durante 1 turno |
 | 👸 Reina | **Bola de Fuego** | 4 Maná | Destruye todo en 3 casillas en línea recta (arriba/abajo/izquierda/derecha) |
 | 🔮 Alfil | **Paso Espectral** | 2 Maná | Se teletransporta a cualquier diagonal vacía (ignora bloqueos) |
+| 🌀 Cualquiera | **Caos Dimensional** | 1000 Pts | Randomiza el tablero en posiciones válidas. Pierdes un turno. |
 
 ---
 
@@ -35,21 +37,26 @@ Cada pieza tiene un hechizo único que se desbloquea al seleccionarla (si tienes
 
 La dificultad de la IA escala con cada nivel completado:
 
-- **Nivel 1:** Juego básico con alta aleatoriedad.
-- **Nivel 2:** Evaluación de seguridad — evita casillas atacadas, protege sus piezas.
-- **Nivel 3:** Busca dar jaque activamente al jugador.
-- **Nivel 4:** Lookahead — analiza si el jugador puede responder capturando.
-- **Nivel 5:** Caza al Rey — prioriza acercarse al rey del jugador.
-- **Nivel 6+:** Coordinación — protege piezas aliadas entre sí, aleatoriedad mínima.
+| Nivel | Comportamiento |
+|-------|---------------|
+| 1 | Juego básico con alta aleatoriedad |
+| 2 | Evaluación de seguridad — evita casillas atacadas, protege sus piezas |
+| 3 | Busca dar jaque activamente al jugador |
+| 4 | Lookahead — analiza si el jugador puede responder capturando |
+| 5 | Caza al Rey — prioriza acercarse al rey del jugador |
+| 6+ | Coordinación entre piezas, aleatoriedad mínima |
 
 ---
 
 ## 🏆 Mecánicas de Juego
 
 - **Maná:** +1 por turno. Se acumula entre niveles.
-- **Jaque/Jaque Mate:** Implementado con reglas reales — no puedes hacer movimientos que dejen tu rey en jaque.
-- **Coronación de Peones:** Al llegar al final del tablero, el jugador elige entre Reina, Torre, Alfil o Caballo.
-- **Niveles progresivos:** Captura al Rey enemigo o hazle Jaque Mate para avanzar de nivel.
+- **Jaque / Jaque Mate:** Implementado con reglas reales — no puedes hacer movimientos que dejen tu rey en jaque. Si es jaque mate, ganas o pierdes.
+- **Enroque:** Corto y largo, con validación completa (rey/torre no movidos, casillas intermedias libres y no atacadas).
+- **Captura al Paso (En Passant):** Cuando un peón avanza 2 casillas, el peón enemigo adyacente puede capturarlo al paso el turno siguiente.
+- **Coronación de Peones:** Al llegar al final del tablero, el jugador elige entre Reina, Torre, Alfil o Caballo mediante un modal interactivo. La IA siempre promociona a Reina.
+- **Caos Dimensional:** Por 1000 puntos, randomiza todo el tablero. El jugador pierde un turno como penalización.
+- **Niveles progresivos:** Haz Jaque Mate o captura al Rey enemigo para avanzar de nivel.
 - **Game Over:** Si tu Rey es capturado o recibes Jaque Mate.
 - **High Score:** Persistido en LocalStorage entre sesiones.
 
@@ -57,34 +64,38 @@ La dificultad de la IA escala con cada nivel completado:
 
 ## 🛠️ Tecnologías Utilizadas
 
-- **Frontend / Renderizado:** HTML5 Canvas API (nativo, sin dependencias).
-- **Estilos e Interfaz:** CSS3 con tema oscuro/mágico y diseño responsive.
-- **Audio:** Web Audio API (efectos sintetizados para mover, capturar, lanzar poder, game over y level up).
-- **Persistencia:** LocalStorage para High Score.
-- **Despliegue:** GitHub Pages (sitio estático, sin build step).
+| Tecnología | Uso |
+|-----------|-----|
+| HTML5 Canvas | Renderizado del tablero y piezas |
+| CSS3 | Tema oscuro/mágico responsive |
+| JavaScript ES6+ | Lógica completa del juego (~1400 líneas) |
+| Web Audio API | Efectos sonoros sintetizados |
+| LocalStorage | Persistencia de High Score |
+| GitHub Pages | Despliegue estático (sin build step) |
 
 ---
 
-## � Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
 ├── index.html    # Estructura HTML con canvas y panel UI
 ├── style.css     # Estilos dark/sci-fi responsive
-├── game.js       # Lógica completa del juego (~1000 líneas)
-└── README.md     # Este archivo
+├── game.js       # Lógica completa del juego
+└── README.md     # Documentación
 ```
+
+**Sin dependencias externas.** No requiere npm, webpack, ni compilación.
 
 ---
 
-## �🚀 Ejecución Local
+## 🚀 Ejecución Local
 
-1. Clonar el repositorio:
-   ```bash
-   git clone https://github.com/mornaeldernar/Power-Chess-Spellbound-Tactics.git
-   cd Power-Chess-Spellbound-Tactics
-   ```
+```bash
+git clone https://github.com/mornaeldernar/Power-Chess-Spellbound-Tactics.git
+cd Power-Chess-Spellbound-Tactics
+```
 
-2. Abrir `index.html` en cualquier navegador moderno. No requiere servidor, npm, ni compilación.
+Abrir `index.html` en cualquier navegador moderno. Listo.
 
 ---
 
@@ -92,8 +103,19 @@ La dificultad de la IA escala con cada nivel completado:
 
 1. **Click en pieza blanca** → la selecciona y muestra movimientos legales.
 2. **Click en casilla válida** → mueve la pieza.
-3. **Botones del panel lateral** → activan poderes (si la pieza seleccionada tiene uno disponible y hay maná suficiente).
-4. **Click fuera de movimientos válidos** → deselecciona / cancela poder.
+3. **Botones del panel lateral** → activan poderes (si la pieza tiene uno disponible y hay maná/puntos suficientes).
+4. **Click fuera de movimientos** → deselecciona / cancela poder.
+
+### Indicadores Visuales
+
+| Color | Significado |
+|-------|------------|
+| Púrpura (punto) | Movimiento normal disponible |
+| Rojo (casilla) | Captura disponible |
+| Azul-cian (casilla) | Enroque disponible |
+| Naranja (casilla) | Captura al paso disponible |
+| Dorado (círculo) | Pieza con escudo activo |
+| Rojo (borde) | Rey en jaque |
 
 ---
 

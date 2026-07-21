@@ -92,7 +92,8 @@
         aiThinking: false,
         inCheck: false,
         promotingPawn: null,
-        enPassantTarget: null  // {row, col} of the square where en passant capture is possible
+        enPassantTarget: null,  // {row, col} of the square where en passant capture is possible
+        skipNextTurn: false
     };
 
     // ========== DOM ELEMENTS ==========
@@ -111,6 +112,7 @@
     const btnDefenseShout = document.getElementById('btn-defense-shout');
     const btnFireball = document.getElementById('btn-fireball');
     const btnSpectralDash = document.getElementById('btn-spectral-dash');
+    const btnChaos = document.getElementById('btn-chaos');
     const gameOverModal = document.getElementById('game-over-modal');
     const levelUpModal = document.getElementById('level-up-modal');
     const promotionModal = document.getElementById('promotion-modal');
@@ -149,6 +151,7 @@
         gameState.inCheck = false;
         gameState.promotingPawn = null;
         gameState.enPassantTarget = null;
+        gameState.skipNextTurn = false;
         gameState.aiCaptured = [];
         if (!keepScore) {
             gameState.mana = 0;
@@ -505,9 +508,116 @@
     }
 
     // ========== POWER SYSTEM ==========
+    function randomizeBoard() {
+        // Create a valid random position: both kings present, pieces placed randomly
+        const board = Array.from({ length: 8 }, () => Array(8).fill(null));
+        const allSquares = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                allSquares.push({ row: r, col: c });
+            }
+        }
+
+        // Shuffle squares
+        for (let i = allSquares.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [allSquares[i], allSquares[j]] = [allSquares[j], allSquares[i]];
+        }
+
+        let idx = 0;
+
+        // Place kings first (mandatory) - kings can't be on rows 0/7 adjacent to each other
+        const wKingPos = allSquares[idx++];
+        board[wKingPos.row][wKingPos.col] = createPiece(PIECE_TYPES.KING, COLORS.WHITE, wKingPos.row, wKingPos.col);
+
+        // Place black king at least 2 squares away from white king
+        let bKingPos = null;
+        for (let i = idx; i < allSquares.length; i++) {
+            const s = allSquares[i];
+            const dist = Math.abs(s.row - wKingPos.row) + Math.abs(s.col - wKingPos.col);
+            if (dist >= 2) {
+                bKingPos = s;
+                allSquares.splice(i, 1);
+                break;
+            }
+        }
+        if (!bKingPos) bKingPos = allSquares[idx++];
+        board[bKingPos.row][bKingPos.col] = createPiece(PIECE_TYPES.KING, COLORS.BLACK, bKingPos.row, bKingPos.col);
+
+        // Collect remaining pieces from current board (excluding kings)
+        const whitePieces = [];
+        const blackPieces = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = gameState.board[r][c];
+                if (p && p.type !== PIECE_TYPES.KING) {
+                    if (p.color === COLORS.WHITE) whitePieces.push(p.type);
+                    else blackPieces.push(p.type);
+                }
+            }
+        }
+
+        // Place white pieces
+        for (const type of whitePieces) {
+            if (idx >= allSquares.length) break;
+            const pos = allSquares[idx++];
+            // Pawns can't be on rank 0 or 7
+            let finalPos = pos;
+            if (type === PIECE_TYPES.PAWN && (pos.row === 0 || pos.row === 7)) {
+                // Find a valid square
+                for (let i = idx; i < allSquares.length; i++) {
+                    if (allSquares[i].row !== 0 && allSquares[i].row !== 7) {
+                        finalPos = allSquares[i];
+                        allSquares[i] = pos;
+                        break;
+                    }
+                }
+            }
+            board[finalPos.row][finalPos.col] = createPiece(type, COLORS.WHITE, finalPos.row, finalPos.col);
+        }
+
+        // Place black pieces
+        for (const type of blackPieces) {
+            if (idx >= allSquares.length) break;
+            const pos = allSquares[idx++];
+            let finalPos = pos;
+            if (type === PIECE_TYPES.PAWN && (pos.row === 0 || pos.row === 7)) {
+                for (let i = idx; i < allSquares.length; i++) {
+                    if (allSquares[i].row !== 0 && allSquares[i].row !== 7) {
+                        finalPos = allSquares[i];
+                        allSquares[i] = pos;
+                        break;
+                    }
+                }
+            }
+            board[finalPos.row][finalPos.col] = createPiece(type, COLORS.BLACK, finalPos.row, finalPos.col);
+        }
+
+        gameState.board = board;
+        gameState.shieldedPieces = [];
+        gameState.enPassantTarget = null;
+        gameState.selectedPiece = null;
+        gameState.validMoves = [];
+    }
+
     function activatePower(powerType) {
+        if (gameState.currentTurn !== COLORS.WHITE) return;
+
+        // Chaos doesn't require a selected piece
+        if (powerType === 'chaos') {
+            if (gameState.score < 1000) return;
+            gameState.score -= 1000;
+            randomizeBoard();
+            AudioSystem.play('power');
+            addLog('¡Caos Dimensional! El tablero ha sido alterado. Pierdes un turno.', 'power-log');
+            gameState.skipNextTurn = true;
+            endTurn();
+            updateUI();
+            return;
+        }
+
         const piece = gameState.selectedPiece;
-        if (!piece || gameState.currentTurn !== COLORS.WHITE) return;
+        if (!piece) return;
 
         if (powerType === 'shadowJump') {
             if (piece.type !== PIECE_TYPES.KNIGHT || gameState.mana < 2) return;
@@ -770,6 +880,21 @@
                 gameState.inCheck = false;
             }
 
+            // Skip player turn if chaos was used
+            if (gameState.skipNextTurn) {
+                gameState.skipNextTurn = false;
+                addLog('Turno perdido por Caos Dimensional.', 'power-log');
+                gameState.currentTurn = COLORS.BLACK;
+                updateUI();
+                drawBoard();
+                gameState.aiThinking = true;
+                setTimeout(() => {
+                    aiTurn();
+                    gameState.aiThinking = false;
+                }, 500 + Math.random() * 300);
+                return;
+            }
+
             updateUI();
             drawBoard();
         }
@@ -991,6 +1116,12 @@
         btnDefenseShout.disabled = true;
         btnFireball.disabled = true;
         btnSpectralDash.disabled = true;
+        btnChaos.disabled = true;
+
+        // Chaos is available anytime with enough score (no piece selection needed)
+        if (gameState.currentTurn === COLORS.WHITE && gameState.score >= 1000 && !gameState.gameOver) {
+            btnChaos.disabled = false;
+        }
 
         if (!piece || gameState.currentTurn !== COLORS.WHITE || piece.color !== COLORS.WHITE) {
             powerHint.textContent = 'Selecciona una pieza para ver sus poderes';
@@ -1216,6 +1347,7 @@
     btnDefenseShout.addEventListener('click', () => activatePower('defenseShout'));
     btnFireball.addEventListener('click', () => activatePower('fireball'));
     btnSpectralDash.addEventListener('click', () => activatePower('spectralDash'));
+    btnChaos.addEventListener('click', () => activatePower('chaos'));
 
     // Promotion modal
     function showPromotionModal() {
