@@ -80,6 +80,7 @@
         selectedPiece: null,
         validMoves: [],
         mana: 0,
+        aiMana: 0,
         score: 0,
         highScore: parseInt(localStorage.getItem('powerChessHighScore')) || 0,
         level: 1,
@@ -105,6 +106,7 @@
     const scoreDisplay = document.getElementById('score-display');
     const highscoreDisplay = document.getElementById('highscore-display');
     const manaDisplay = document.getElementById('mana-display');
+    const aiManaDisplay = document.getElementById('ai-mana-display');
     const actionLog = document.getElementById('action-log');
     const powerHint = document.getElementById('power-hint');
     const btnShadowJump = document.getElementById('btn-shadow-jump');
@@ -157,11 +159,13 @@
         gameState.aiCaptured = [];
         if (!keepScore) {
             gameState.mana = 0;
+            gameState.aiMana = 0;
             gameState.score = 0;
             gameState.level = 1;
             gameState.playerCaptured = [];
         } else {
             gameState.mana += 1;
+            gameState.aiMana += 1;
         }
         updateUI();
         drawBoard();
@@ -972,6 +976,7 @@
                 return true;
             });
             gameState.currentTurn = COLORS.BLACK;
+            gameState.aiMana += 1;
 
             // Record position and check draw
             recordPosition();
@@ -1039,6 +1044,7 @@
                 gameState.skipNextTurn = false;
                 addLog('Turno perdido por Caos Dimensional.', 'power-log');
                 gameState.currentTurn = COLORS.BLACK;
+                gameState.aiMana += 1;
                 updateUI();
                 drawBoard();
                 gameState.aiThinking = true;
@@ -1073,9 +1079,13 @@
         const level = gameState.level;
         // AI parameters scale with level
         const aggressiveness = Math.min(level * 0.12 + 0.3, 0.95);
-        const randomFactor = Math.max(60 - level * 8, 5); // Less random at higher levels
-        const useLookahead = level >= 3; // From level 3+, AI considers opponent responses
-        const prioritizeKingAttack = level >= 5; // From level 5+, hunts the king
+        const randomFactor = Math.max(60 - level * 8, 5);
+        const useLookahead = level >= 3;
+        const prioritizeKingAttack = level >= 5;
+
+        // === AI POWER EVALUATION ===
+        // AI considers using powers before normal moves (level 2+)
+        const powerAction = evaluateAiPowers(aiPieces, board, level, aggressiveness);
 
         let bestMove = null;
         let bestScore = -Infinity;
@@ -1194,10 +1204,21 @@
         }
 
         if (bestMove) {
-            const flags = {};
-            if (bestMove.move.enPassant) flags.enPassant = true;
-            if (bestMove.move.castling) flags.castling = bestMove.move.castling;
-            movePiece(bestMove.piece, bestMove.move.row, bestMove.move.col, flags);
+            // Compare best normal move vs best power action
+            if (powerAction && powerAction.score > bestScore && level >= 2) {
+                executeAiPower(powerAction);
+            } else {
+                const flags = {};
+                if (bestMove.move.enPassant) flags.enPassant = true;
+                if (bestMove.move.castling) flags.castling = bestMove.move.castling;
+                movePiece(bestMove.piece, bestMove.move.row, bestMove.move.col, flags);
+            }
+            if (!gameState.gameOver) {
+                endTurn();
+            }
+        } else if (powerAction && level >= 2) {
+            // No legal moves but can use a power
+            executeAiPower(powerAction);
             if (!gameState.gameOver) {
                 endTurn();
             }
@@ -1206,6 +1227,263 @@
             levelComplete();
         }
         drawBoard();
+    }
+
+    // ========== AI POWER LOGIC ==========
+    function evaluateAiPowers(aiPieces, board, level, aggressiveness) {
+        const mana = gameState.aiMana;
+        if (mana < 2 || level < 2) return null; // No powers below level 2 or mana 2
+
+        let bestPower = null;
+        let bestScore = 0; // Powers must score > 0 to be worth using
+
+        // Probability of considering powers increases with level
+        const powerChance = Math.min(0.3 + level * 0.1, 0.9);
+        if (Math.random() > powerChance) return null;
+
+        // --- SHADOW JUMP (Knight, 2 mana): teleport to any empty square ---
+        if (mana >= 2) {
+            const knights = aiPieces.filter(p => p.type === PIECE_TYPES.KNIGHT);
+            for (const knight of knights) {
+                // Find best empty square (near player king or center)
+                const playerKing = findKing(COLORS.WHITE, board);
+                if (playerKing) {
+                    // Look for squares adjacent to player king
+                    for (let dr = -2; dr <= 2; dr++) {
+                        for (let dc = -2; dc <= 2; dc++) {
+                            const r = playerKing.row + dr, c = playerKing.col + dc;
+                            if (!isInBounds(r, c) || board[r][c]) continue;
+                            // Score: proximity to king + not attacked
+                            let score = 150 * aggressiveness;
+                            const dist = Math.abs(dr) + Math.abs(dc);
+                            score += (4 - dist) * 20;
+                            if (isSquareAttacked(r, c, COLORS.WHITE, board)) {
+                                score -= 80;
+                            }
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestPower = { type: 'shadowJump', piece: knight, target: { row: r, col: c }, score };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- THUNDER STRIKE (Rook, 3 mana): destroy adjacent enemy ---
+        if (mana >= 3) {
+            const rooks = aiPieces.filter(p => p.type === PIECE_TYPES.ROOK);
+            for (const rook of rooks) {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const r = rook.row + dr, c = rook.col + dc;
+                        if (!isInBounds(r, c)) continue;
+                        const target = board[r][c];
+                        if (target && target.color === COLORS.WHITE && !isShielded(target)) {
+                            let score = PIECE_VALUES[target.type] * 120;
+                            if (target.type === PIECE_TYPES.KING) score += 50000;
+                            if (target.type === PIECE_TYPES.QUEEN) score += 200;
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestPower = { type: 'thunderStrike', piece: rook, target: { row: r, col: c }, score };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- SACRED SHIELD (King, 3 mana): protect king when in danger ---
+        if (mana >= 3) {
+            const king = findKing(COLORS.BLACK, board);
+            if (king && isSquareAttacked(king.row, king.col, COLORS.WHITE, board)) {
+                let score = 500 * aggressiveness; // High priority when king threatened
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPower = { type: 'sacredShield', piece: king, score };
+                }
+            }
+        }
+
+        // --- DEFENSE SHOUT (King, 4 mana): shield all pawns ---
+        if (mana >= 4) {
+            const king = findKing(COLORS.BLACK, board);
+            if (king) {
+                // Count pawns that are under threat
+                let threatenedPawns = 0;
+                for (const p of aiPieces) {
+                    if (p.type === PIECE_TYPES.PAWN && isSquareAttacked(p.row, p.col, COLORS.WHITE, board)) {
+                        threatenedPawns++;
+                    }
+                }
+                if (threatenedPawns >= 2) {
+                    let score = threatenedPawns * 80 * aggressiveness;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestPower = { type: 'defenseShout', piece: king, score };
+                    }
+                }
+            }
+        }
+
+        // --- FIREBALL (Queen, 4 mana): destroy 3 in a line ---
+        if (mana >= 4) {
+            const queens = aiPieces.filter(p => p.type === PIECE_TYPES.QUEEN);
+            for (const queen of queens) {
+                const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                for (const [dr, dc] of directions) {
+                    let lineScore = 0;
+                    let hitsKing = false;
+                    for (let i = 1; i <= 3; i++) {
+                        const r = queen.row + dr * i, c = queen.col + dc * i;
+                        if (!isInBounds(r, c)) break;
+                        const target = board[r][c];
+                        if (target && target.color === COLORS.WHITE) {
+                            lineScore += PIECE_VALUES[target.type] * 100;
+                            if (target.type === PIECE_TYPES.KING) hitsKing = true;
+                        } else if (target && target.color === COLORS.BLACK) {
+                            lineScore -= PIECE_VALUES[target.type] * 80; // Friendly fire penalty
+                        }
+                    }
+                    if (hitsKing) lineScore += 50000;
+                    if (lineScore > bestScore) {
+                        bestScore = lineScore;
+                        bestPower = { type: 'fireball', piece: queen, dir: { dr, dc }, score: lineScore };
+                    }
+                }
+            }
+        }
+
+        // --- SPECTRAL DASH (Bishop, 2 mana): teleport on diagonal ---
+        if (mana >= 2) {
+            const bishops = aiPieces.filter(p => p.type === PIECE_TYPES.BISHOP);
+            for (const bishop of bishops) {
+                const playerKing = findKing(COLORS.WHITE, board);
+                for (const [dr, dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]) {
+                    for (let i = 1; i < 8; i++) {
+                        const r = bishop.row + dr * i, c = bishop.col + dc * i;
+                        if (!isInBounds(r, c)) break;
+                        if (board[r][c]) continue; // Only empty squares
+                        let score = 0;
+                        if (playerKing) {
+                            const dist = Math.abs(r - playerKing.row) + Math.abs(c - playerKing.col);
+                            score = (14 - dist) * 10 * aggressiveness;
+                        }
+                        // Bonus for threatening diagonals near king
+                        if (!isSquareAttacked(r, c, COLORS.WHITE, board)) {
+                            score += 30;
+                        }
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestPower = { type: 'spectralDash', piece: bishop, target: { row: r, col: c }, score };
+                        }
+                    }
+                }
+            }
+        }
+
+        return bestPower;
+    }
+
+    function executeAiPower(action) {
+        const board = gameState.board;
+
+        switch (action.type) {
+            case 'shadowJump': {
+                gameState.aiMana -= 2;
+                const p = action.piece;
+                board[p.row][p.col] = null;
+                p.row = action.target.row;
+                p.col = action.target.col;
+                board[p.row][p.col] = p;
+                AudioSystem.play('power');
+                addLog(`IA: ${PIECE_SYMBOLS[p.color][p.type]} usa Salto Sombra a ${String.fromCharCode(97 + p.col)}${8 - p.row}`, 'capture-log');
+                break;
+            }
+            case 'thunderStrike': {
+                gameState.aiMana -= 3;
+                const target = board[action.target.row][action.target.col];
+                if (target) {
+                    if (target.type === PIECE_TYPES.KING) {
+                        board[action.target.row][action.target.col] = null;
+                        AudioSystem.play('power');
+                        addLog(`IA: Golpe de Trueno destruye ${PIECE_SYMBOLS[target.color][target.type]}!`, 'capture-log');
+                        endGame();
+                        return;
+                    }
+                    board[action.target.row][action.target.col] = null;
+                    gameState.aiCaptured.push(target);
+                    AudioSystem.play('power');
+                    addLog(`IA: Golpe de Trueno destruye ${PIECE_SYMBOLS[target.color][target.type]}!`, 'capture-log');
+                }
+                break;
+            }
+            case 'sacredShield': {
+                gameState.aiMana -= 3;
+                const king = action.piece;
+                gameState.shieldedPieces.push({ row: king.row, col: king.col, color: COLORS.BLACK, turnsLeft: 1 });
+                AudioSystem.play('power');
+                addLog(`IA: Escudo Sagrado aplicado a ${PIECE_SYMBOLS[king.color][king.type]}`, 'capture-log');
+                break;
+            }
+            case 'defenseShout': {
+                gameState.aiMana -= 4;
+                let count = 0;
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const p = board[r][c];
+                        if (p && p.color === COLORS.BLACK && p.type === PIECE_TYPES.PAWN && !isShielded(p)) {
+                            gameState.shieldedPieces.push({ row: p.row, col: p.col, color: p.color, turnsLeft: 1 });
+                            count++;
+                        }
+                    }
+                }
+                AudioSystem.play('power');
+                addLog(`IA: ¡Grito de Defensa! ${count} peones protegidos.`, 'capture-log');
+                break;
+            }
+            case 'fireball': {
+                gameState.aiMana -= 4;
+                const queen = action.piece;
+                const { dr, dc } = action.dir;
+                let destroyed = 0;
+                for (let i = 1; i <= 3; i++) {
+                    const r = queen.row + dr * i, c = queen.col + dc * i;
+                    if (!isInBounds(r, c)) break;
+                    const target = board[r][c];
+                    if (target) {
+                        if (target.color === COLORS.WHITE) {
+                            if (target.type === PIECE_TYPES.KING) {
+                                board[r][c] = null;
+                                AudioSystem.play('power');
+                                addLog(`IA: ¡Bola de Fuego destruye al Rey!`, 'capture-log');
+                                endGame();
+                                return;
+                            }
+                            gameState.aiCaptured.push(target);
+                        }
+                        board[r][c] = null;
+                        destroyed++;
+                    }
+                }
+                AudioSystem.play('power');
+                addLog(`IA: ¡Bola de Fuego! ${destroyed} piezas destruidas.`, 'capture-log');
+                break;
+            }
+            case 'spectralDash': {
+                gameState.aiMana -= 2;
+                const p = action.piece;
+                board[p.row][p.col] = null;
+                p.row = action.target.row;
+                p.col = action.target.col;
+                board[p.row][p.col] = p;
+                AudioSystem.play('power');
+                addLog(`IA: ${PIECE_SYMBOLS[p.color][p.type]} usa Paso Espectral a ${String.fromCharCode(97 + p.col)}${8 - p.row}`, 'capture-log');
+                break;
+            }
+        }
+        updateUI();
     }
 
     // ========== GAME FLOW ==========
@@ -1250,6 +1528,17 @@
         scoreDisplay.textContent = gameState.score;
         highscoreDisplay.textContent = gameState.highScore;
         manaDisplay.textContent = gameState.mana;
+        aiManaDisplay.textContent = gameState.aiMana;
+
+        // Mobile displays
+        const mobilePlayer = document.getElementById('mobile-mana-player');
+        const mobileAi = document.getElementById('mobile-mana-ai');
+        const mobileLevel = document.getElementById('mobile-level');
+        const mobileScore = document.getElementById('mobile-score');
+        if (mobilePlayer) mobilePlayer.textContent = gameState.mana;
+        if (mobileAi) mobileAi.textContent = gameState.aiMana;
+        if (mobileLevel) mobileLevel.textContent = gameState.level;
+        if (mobileScore) mobileScore.textContent = gameState.score;
 
         if (gameState.currentTurn === COLORS.WHITE) {
             turnIndicator.textContent = 'Turno: Jugador (Blanco)';
