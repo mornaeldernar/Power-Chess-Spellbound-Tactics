@@ -759,6 +759,7 @@
             gameState.mana -= 100;
             randomizeBoard();
             AudioSystem.play('power');
+            createAnimation('chaos', 0, 0, 7, 7);
             addLog('¡Caos Dimensional! El tablero ha sido alterado. Pierdes un turno.', 'power-log');
             gameState.skipNextTurn = true;
             endTurn();
@@ -806,6 +807,7 @@
             gameState.mana -= 3;
             gameState.shieldedPieces.push({ row: piece.row, col: piece.col, color: piece.color, turnsLeft: 1 });
             AudioSystem.play('power');
+            createAnimation('sacredShield', piece.row, piece.col, piece.row, piece.col);
             addLog(`Escudo Sagrado aplicado a ${PIECE_SYMBOLS[piece.color][piece.type]}!`, 'power-log');
             endTurn();
         } else if (powerType === 'defenseShout') {
@@ -826,6 +828,7 @@
                 }
             }
             AudioSystem.play('power');
+            createAnimation('defenseShout', piece.row, piece.col, piece.row, piece.col);
             addLog(`¡Grito de Defensa! ${shieldedCount} peones protegidos.`, 'power-log');
             endTurn();
         } else if (powerType === 'fireball') {
@@ -875,6 +878,7 @@
             piece.col = targetCol;
             board[targetRow][targetCol] = piece;
             AudioSystem.play('power');
+            createAnimation('shadowJump', piece.row, piece.col, targetRow, targetCol);
             addLog(`${PIECE_SYMBOLS[piece.color][piece.type]} usa Salto Sombra a ${String.fromCharCode(97 + targetCol)}${8 - targetRow}!`, 'power-log');
             gameState.activePower = null;
             gameState.powerTargets = [];
@@ -889,6 +893,7 @@
                     gameState.playerCaptured.push(target);
                     gameState.score += PIECE_VALUES[target.type] * 10;
                     AudioSystem.play('power');
+                    createAnimation('thunderStrike', piece.row, piece.col, targetRow, targetCol);
                     addLog(`Golpe de Trueno destruye ${PIECE_SYMBOLS[target.color][target.type]}!`, 'power-log');
                     gameState.activePower = null;
                     gameState.powerTargets = [];
@@ -899,6 +904,7 @@
                 gameState.playerCaptured.push(target);
                 gameState.score += PIECE_VALUES[target.type] * 10;
                 AudioSystem.play('power');
+                createAnimation('thunderStrike', piece.row, piece.col, targetRow, targetCol);
                 addLog(`Golpe de Trueno destruye ${PIECE_SYMBOLS[target.color][target.type]}!`, 'power-log');
             }
             gameState.activePower = null;
@@ -941,6 +947,7 @@
                     }
                 }
                 AudioSystem.play('power');
+                createAnimation('fireball', piece.row, piece.col, piece.row + dr * 3, piece.col + dc * 3, { dr, dc });
                 addLog(`¡Bola de Fuego! ${destroyed} piezas destruidas en línea.`, 'power-log');
                 if (hitKing) {
                     gameState.activePower = null;
@@ -959,6 +966,7 @@
             piece.col = targetCol;
             board[targetRow][targetCol] = piece;
             AudioSystem.play('power');
+            createAnimation('spectralDash', piece.row, piece.col, targetRow, targetCol);
             addLog(`${PIECE_SYMBOLS[piece.color][piece.type]} usa Paso Espectral a ${String.fromCharCode(97 + targetCol)}${8 - targetRow}!`, 'power-log');
             gameState.activePower = null;
             gameState.powerTargets = [];
@@ -1000,8 +1008,8 @@
                 return;
             }
             if (isStalemate(COLORS.BLACK, gameState.board)) {
-                addLog('Ahogado - la IA no tiene movimientos legales. ¡Victoria!', 'power-log');
-                levelComplete();
+                addLog('Empate por ahogado - la IA no tiene movimientos legales.', 'power-log');
+                triggerDraw('Rey ahogado: la IA no tiene movimientos legales.');
                 return;
             }
             if (isInCheck(COLORS.BLACK, gameState.board)) {
@@ -1039,8 +1047,8 @@
                 return;
             }
             if (isStalemate(COLORS.WHITE, gameState.board)) {
-                addLog('Ahogado - no tienes movimientos legales.', 'capture-log');
-                endGame();
+                addLog('Empate por ahogado - no tienes movimientos legales.', 'power-log');
+                triggerDraw('Rey ahogado: no tienes movimientos legales.');
                 return;
             }
             if (isInCheck(COLORS.WHITE, gameState.board)) {
@@ -1234,8 +1242,8 @@
                 endTurn();
             }
         } else {
-            addLog('IA sin movimientos - victoria por ahogado!', 'power-log');
-            levelComplete();
+            addLog('Empate por ahogado - IA sin movimientos.', 'power-log');
+            triggerDraw('Rey ahogado: la IA no tiene movimientos legales.');
         }
         drawBoard();
     }
@@ -1635,6 +1643,260 @@
         while (actionLog.children.length > 30) {
             actionLog.removeChild(actionLog.lastChild);
         }
+    }
+
+    // ========== ANIMATION SYSTEM ==========
+    const animations = [];
+
+    function createAnimation(type, fromRow, fromCol, toRow, toCol, extra) {
+        const anim = {
+            type, fromRow, fromCol, toRow, toCol, extra: extra || {},
+            startTime: performance.now(),
+            duration: 600,
+            particles: [],
+        };
+
+        switch (type) {
+            case 'shadowJump':
+                anim.duration = 500;
+                for (let i = 0; i < 20; i++) {
+                    anim.particles.push({
+                        x: fromCol * TILE_SIZE + TILE_SIZE / 2,
+                        y: fromRow * TILE_SIZE + TILE_SIZE / 2,
+                        vx: (Math.random() - 0.5) * 6,
+                        vy: (Math.random() - 0.5) * 6,
+                        life: 1, decay: 0.02 + Math.random() * 0.02,
+                        color: `hsl(${270 + Math.random() * 30}, 80%, ${50 + Math.random() * 30}%)`,
+                        size: 3 + Math.random() * 4,
+                    });
+                }
+                // Arrival particles
+                for (let i = 0; i < 15; i++) {
+                    anim.particles.push({
+                        x: toCol * TILE_SIZE + TILE_SIZE / 2,
+                        y: toRow * TILE_SIZE + TILE_SIZE / 2,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: (Math.random() - 0.5) * 4,
+                        life: 0, decay: -0.04, maxLife: 1, delay: 200,
+                        color: `hsl(${260 + Math.random() * 40}, 90%, 70%)`,
+                        size: 2 + Math.random() * 3,
+                    });
+                }
+                break;
+
+            case 'thunderStrike':
+                anim.duration = 400;
+                const tx = toCol * TILE_SIZE + TILE_SIZE / 2;
+                const ty = toRow * TILE_SIZE + TILE_SIZE / 2;
+                for (let i = 0; i < 30; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 2 + Math.random() * 5;
+                    anim.particles.push({
+                        x: tx, y: ty,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 1, decay: 0.03 + Math.random() * 0.02,
+                        color: `hsl(${45 + Math.random() * 15}, 100%, ${60 + Math.random() * 30}%)`,
+                        size: 2 + Math.random() * 4,
+                    });
+                }
+                // Lightning bolt segments
+                anim.bolts = [];
+                for (let i = 0; i < 5; i++) {
+                    anim.bolts.push({ x: tx, y: ty - TILE_SIZE, segments: _generateBolt(tx, ty - TILE_SIZE, tx, ty) });
+                }
+                break;
+
+            case 'sacredShield':
+                anim.duration = 600;
+                const sx = toCol * TILE_SIZE + TILE_SIZE / 2;
+                const sy = toRow * TILE_SIZE + TILE_SIZE / 2;
+                for (let i = 0; i < 20; i++) {
+                    const angle = (i / 20) * Math.PI * 2;
+                    anim.particles.push({
+                        x: sx + Math.cos(angle) * 30,
+                        y: sy + Math.sin(angle) * 30,
+                        vx: Math.cos(angle) * 0.5,
+                        vy: Math.sin(angle) * 0.5,
+                        life: 1, decay: 0.015,
+                        color: `hsl(${45 + Math.random() * 10}, 90%, ${70 + Math.random() * 20}%)`,
+                        size: 3 + Math.random() * 2, orbit: true, angle, radius: 28,
+                        cx: sx, cy: sy, angSpeed: 0.05 + Math.random() * 0.03,
+                    });
+                }
+                break;
+
+            case 'defenseShout':
+                anim.duration = 700;
+                const kx = fromCol * TILE_SIZE + TILE_SIZE / 2;
+                const ky = fromRow * TILE_SIZE + TILE_SIZE / 2;
+                // Shockwave ring
+                anim.ring = { x: kx, y: ky, radius: 0, maxRadius: CANVAS_SIZE * 0.6, life: 1 };
+                for (let i = 0; i < 25; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    anim.particles.push({
+                        x: kx, y: ky,
+                        vx: Math.cos(angle) * (3 + Math.random() * 4),
+                        vy: Math.sin(angle) * (3 + Math.random() * 4),
+                        life: 1, decay: 0.018,
+                        color: `hsl(${40 + Math.random() * 20}, 90%, ${60 + Math.random() * 30}%)`,
+                        size: 2 + Math.random() * 3,
+                    });
+                }
+                break;
+
+            case 'fireball':
+                anim.duration = 500;
+                const fx = fromCol * TILE_SIZE + TILE_SIZE / 2;
+                const fy = fromRow * TILE_SIZE + TILE_SIZE / 2;
+                const dr = extra.dr || 0, dc = extra.dc || 0;
+                for (let i = 0; i < 40; i++) {
+                    const dist = Math.random() * 3;
+                    anim.particles.push({
+                        x: fx + dc * TILE_SIZE * dist,
+                        y: fy + dr * TILE_SIZE * dist,
+                        vx: dc * (2 + Math.random() * 3) + (Math.random() - 0.5) * 2,
+                        vy: dr * (2 + Math.random() * 3) + (Math.random() - 0.5) * 2,
+                        life: 1, decay: 0.02 + Math.random() * 0.02,
+                        color: `hsl(${Math.random() * 40}, 100%, ${50 + Math.random() * 30}%)`,
+                        size: 3 + Math.random() * 5,
+                    });
+                }
+                break;
+
+            case 'spectralDash':
+                anim.duration = 450;
+                // Trail from origin to destination
+                const steps = 15;
+                const sdx = (toCol - fromCol) * TILE_SIZE / steps;
+                const sdy = (toRow - fromRow) * TILE_SIZE / steps;
+                for (let i = 0; i < steps; i++) {
+                    anim.particles.push({
+                        x: fromCol * TILE_SIZE + TILE_SIZE / 2 + sdx * i,
+                        y: fromRow * TILE_SIZE + TILE_SIZE / 2 + sdy * i,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        life: 0, decay: -0.05, maxLife: 1, delay: i * 25,
+                        color: `hsl(${200 + Math.random() * 60}, 80%, ${60 + Math.random() * 30}%)`,
+                        size: 2 + Math.random() * 3,
+                    });
+                }
+                break;
+
+            case 'chaos':
+                anim.duration = 800;
+                for (let i = 0; i < 60; i++) {
+                    anim.particles.push({
+                        x: Math.random() * CANVAS_SIZE,
+                        y: Math.random() * CANVAS_SIZE,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        life: 1, decay: 0.015 + Math.random() * 0.01,
+                        color: `hsl(${Math.random() * 360}, 80%, ${50 + Math.random() * 30}%)`,
+                        size: 2 + Math.random() * 5,
+                    });
+                }
+                break;
+        }
+
+        animations.push(anim);
+        if (animations.length === 1) requestAnimationFrame(animationLoop);
+    }
+
+    function _generateBolt(x1, y1, x2, y2) {
+        const segs = [];
+        const steps = 5;
+        let cx = x1, cy = y1;
+        for (let i = 0; i < steps; i++) {
+            const nx = cx + (x2 - cx) / (steps - i) + (Math.random() - 0.5) * 15;
+            const ny = cy + (y2 - cy) / (steps - i) + (Math.random() - 0.5) * 10;
+            segs.push({ x1: cx, y1: cy, x2: nx, y2: ny });
+            cx = nx; cy = ny;
+        }
+        return segs;
+    }
+
+    function animationLoop(now) {
+        if (animations.length === 0) return;
+
+        drawBoard();
+
+        for (let a = animations.length - 1; a >= 0; a--) {
+            const anim = animations[a];
+            const elapsed = now - anim.startTime;
+            const progress = Math.min(elapsed / anim.duration, 1);
+
+            // Update and draw particles
+            let alive = false;
+            for (const p of anim.particles) {
+                if (p.delay && elapsed < p.delay) { alive = true; continue; }
+                if (p.delay && p.life === 0 && p.decay < 0) {
+                    p.life = Math.min(p.life - p.decay, p.maxLife || 1);
+                }
+
+                if (p.orbit) {
+                    p.angle += p.angSpeed;
+                    p.x = p.cx + Math.cos(p.angle) * p.radius * (1 - progress * 0.3);
+                    p.y = p.cy + Math.sin(p.angle) * p.radius * (1 - progress * 0.3);
+                } else {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vx *= 0.96;
+                    p.vy *= 0.96;
+                }
+
+                if (p.decay > 0) p.life -= p.decay;
+                else if (p.decay < 0 && p.life < (p.maxLife || 1)) p.life -= p.decay;
+                else p.life -= 0.015;
+
+                if (p.life > 0) {
+                    alive = true;
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Lightning bolts (thunderStrike)
+            if (anim.bolts) {
+                ctx.globalAlpha = 1 - progress;
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 2;
+                for (const bolt of anim.bolts) {
+                    for (const seg of bolt.segments) {
+                        ctx.beginPath();
+                        ctx.moveTo(seg.x1 + (Math.random() - 0.5) * 3, seg.y1);
+                        ctx.lineTo(seg.x2 + (Math.random() - 0.5) * 3, seg.y2);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Shockwave ring (defenseShout)
+            if (anim.ring) {
+                anim.ring.radius += 5;
+                anim.ring.life -= 0.02;
+                if (anim.ring.life > 0) {
+                    alive = true;
+                    ctx.globalAlpha = anim.ring.life * 0.6;
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(anim.ring.x, anim.ring.y, anim.ring.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.globalAlpha = 1;
+
+            if (!alive || progress >= 1) {
+                animations.splice(a, 1);
+            }
+        }
+
+        if (animations.length > 0) requestAnimationFrame(animationLoop);
     }
 
     // ========== RENDERING ==========
