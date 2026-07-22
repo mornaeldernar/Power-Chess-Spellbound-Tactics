@@ -7,7 +7,23 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container">
+    <!-- Welcome Screen -->
+    <div id="welcome-screen">
+        <div id="welcome-content">
+            <div id="welcome-icon">♔</div>
+            <h1 id="welcome-title">Power Chess</h1>
+            <p id="welcome-subtitle">Spellbound Tactics</p>
+            <div id="welcome-features">
+                <div class="welcome-feature"><span>⚡</span> Poderes mágicos</div>
+                <div class="welcome-feature"><span>🧠</span> IA progresiva</div>
+                <div class="welcome-feature"><span>♟</span> Ajedrez completo</div>
+            </div>
+            <button id="btn-play">⚔  JUGAR</button>
+            <p id="welcome-credit">Hackathon Kiro / Código Facilito</p>
+        </div>
+    </div>
+
+    <div id="game-container" class="hidden">
         <main id="board-area">
             <div id="title-row">
                 <h1 id="game-title">&#9876; Power Chess: Spellbound Tactics</h1>

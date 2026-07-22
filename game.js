@@ -1933,5 +1933,17 @@
         addLog('Selecciona una pieza y mueve o usa poderes.');
     }
 
-    init();
+    // Welcome screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const btnPlay = document.getElementById('btn-play');
+    const gameContainer = document.getElementById('game-container');
+
+    btnPlay.addEventListener('click', () => {
+        welcomeScreen.style.animation = 'welcomeFadeOut 0.4s ease forwards';
+        setTimeout(() => {
+            welcomeScreen.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            init();
+        }, 400);
+    });
 })();
